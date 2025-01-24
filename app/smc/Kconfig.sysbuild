@@ -1,0 +1,11 @@
+# Copyright (c) 2025 Tenstorrent AI ULC
+#
+# SPDX-License-Identifier: Apache-2.0
+
+source "share/sysbuild/Kconfig"
+
+config BMC_BOARD
+	string "BMC Board"
+	default "tt_blackhole@p150/tt_blackhole/bmc" if $(BOARD_REVISION) = "p150"
+	default "tt_blackhole@p100/tt_blackhole/bmc" if $(BOARD_REVISION) = "p100"
+	default "tt_blackhole/tt_blackhole/bmc"
