@@ -5,7 +5,6 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
-
 jobs:
   hardware-metal-test:
     if: github.repository_owner == 'tenstorrent'
@@ -16,6 +15,7 @@ jobs:
       image: ghcr.io/zephyrproject-rtos/ci-repo-cache:v0.27.4.20241026
       volumes:
         - /dev/hugepages-1G:/dev/hugepages-1G
+        - /dev/hugepages:/dev/hugepages
         - /opt/SEGGER:/opt/SEGGER
         - /opt/tenstorrent/fw/stable:/opt/tenstorrent/fw/stable
         - /opt/tenstorrent/twister:/opt/tenstorrent/twister
@@ -30,7 +30,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: '3.10'
 
       - name: Log Test SHA
         working-directory: tt-zephyr-platforms
@@ -78,6 +78,7 @@ jobs:
           pip install ../../target/wheels/*
 
       - name: Flash Firmware
+        working-directory: zephyr
         run: |
           # This needs to be added to the github runner
           export PATH=$PATH:/opt/SEGGER/JLink/
@@ -87,37 +88,71 @@ jobs:
           # debug adapter this doesn't work. For now, just flash BMC
           # then run twister with SMC firmware
           ./scripts/twister -i --retry-failed 3 \
+            --retry-interval 5 \
+            --tag e2e \
             -p tt_blackhole/tt_blackhole/bmc --device-testing \
             --hardware-map /opt/tenstorrent/twister/hw-map.yml --west-flash \
-            -s app/bmc/sample.app \
-            -T ../tt-zephyr-platforms/samples -ll DEBUG
+            -T ../tt-zephyr-platforms/app -ll DEBUG
           # Run E2E test to verify BMC and SMC firmware boot, and that
           # the SMC firmware sets up PCIe and ARC messages
           ./scripts/twister -i --retry-failed 3 \
             -p tt_blackhole/tt_blackhole/smc --device-testing \
+            --tag e2e \
             --hardware-map /opt/tenstorrent/twister/hw-map.yml --west-flash \
-            -s app/smc/app.e2e-smoke \
-            -T ../tt-zephyr-platforms/samples -ll DEBUG
+            -T ../tt-zephyr-platforms/app -ll DEBUG
+
+
+      - name: Fix APT URLs
+        run: |
+          # Patch APT URLs to use https
+          sed -i -e 's/http/https/g' /etc/apt/sources.list
+          apt update
+
+      - name: Install clang 17
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          sed -i "s/http:\/\/apt.llvm.org/https:\/\/apt.llvm.org/" -i llvm.sh
+          chmod +x llvm.sh
+          ./llvm.sh 17 all
+          rm -f llvm.sh
+
+      - name: Install Git LFS
+        run: |
+          apt install -y git-lfs
+
+      - name: Checkout Metal
+        uses: actions/checkout@v4
+        with:
+          repository: tenstorrent/tt-metal
+          path: tt-metal
+          lfs: true
+          submodules: true
+          ref: v0.55.0
+
+      - name: Install Metal Dependencies
+        working-directory: tt-metal
+        continue-on-error: true
+        shell: bash
+        run: |
+          sed -i 's/apt-get install/apt-get install -y/' install_dependencies.sh
+          sed -i 's/python3.8-venv/python3.10-venv/' install_dependencies.sh
+          apt install -y python3.10-dev python3.10-venv libpython3.10-dev python3.10
+          # This script will fail to install the tt-hugepages service, just ignore it
+          ./install_dependencies.sh
 
       - name: Run Metal Tests
-        run: >
-          REPO_OWNER="tenstorrent"
-          REPO_NAME="tt-metal"
-          API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases"
-          TAG_NAME=$(curl -s "$API_URL" | jq -r '.[0].tag_name')
-          git clone https://github.com/tenstorrent/tt-metal.git
-          echo "Latest release tag: $TAG_NAME"
-          git clone --branch "$TAG_NAME" --depth 1 "https://github.com/${REPO_OWNER}/${REPO_NAME}.git"
-          echo "Cloned ${REPO_NAME} at tag ${TAG_NAME}"
-          cd tt-metal
-          git submodule update --init --recursive
-          git lfs pull
+        working-directory: tt-metal
+        shell: bash
+        env:
+          ARCH_NAME: blackhole
+          TT_METAL_HOME: ${{ github.workspace }}/tt-metal
+          PYTHONPATH: ${{ github.workspace }}/tt-metal
+        run: |
+          # Debug
+          python3 -V
           # Build metal
-          export ARCH_NAME=blackhole
-          export TT_METAL_HOME=`pwd`
-          export PYTHONPATH=`pwd`
           ./build_metal.sh --build-tests --build-programming-examples
-          source ./create_venv.sh
+          PYTHON_CMD=python3.10 source ./create_venv.sh
           # Run metal tests
           tests/scripts/run_cpp_unit_tests.sh
           TT_METAL_SLOW_DISPATCH_MODE=1 tests/scripts/run_cpp_unit_tests.sh
