@@ -48,6 +48,9 @@
 #define DW_APB_I2C_IC_STATUS_TFE_MASK           0x4
 #define DW_APB_I2C_IC_STATUS_TFNF_MASK          0x2
 #define DW_APB_I2C_IC_STATUS_RFNE_MASK          0x8
+#define RESET_UNIT_I2C_PAD_CTRL_TRIEN_SCL_MASK        0x1
+#define RESET_UNIT_I2C_PAD_CTRL_TRIEN_SDA_MASK        0x2
+#define RESET_UNIT_I2C_PAD_CNTL_PUEN_MASK       0xC
 #define RESET_UNIT_I2C_PAD_CNTL_RXEN_MASK       0xC0
 #define DW_APB_I2C_IC_STATUS_MST_ACTIVITY_MASK  0x20
 #define RESET_UNIT_I2C_PAD_CNTL_TRIEN_MASK      0x3
@@ -205,6 +208,49 @@ static inline uint32_t GetI2CPadDataAddr(uint32_t id)
 	}
 }
 
+/* Bitbang recovery sequence on I2C bus */
+static void I2CRecoverBus(uint32_t id)
+{
+	uint32_t drive_strength = 0x7F; /* 50% of max 0xFF */
+	uint32_t i2c_cntl = (drive_strength << RESET_UNIT_I2C_PAD_CNTL_DRV_SHIFT) |
+				RESET_UNIT_I2C_PAD_CNTL_TRIEN_MASK;
+	uint32_t i2c_rst_cntl = ReadReg(RESET_UNIT_I2C_CNTL_REG_ADDR);
+
+	/* Disable I2C controller */
+	WriteReg(GetI2CRegAddr(id, GET_I2C_OFFSET(IC_ENABLE)), 0);
+	/* Release control of pads from I2C controller */
+	WriteReg(RESET_UNIT_I2C_CNTL_REG_ADDR, i2c_rst_cntl & ~BIT(id));
+	/* Init I2C pads for I2C controller */
+	WriteReg(GetI2CPadCntlAddr(id), i2c_cntl);
+	/* Set both pads to output low */
+	WriteReg(GetI2CPadDataAddr(id), 0x0);
+	/*
+	 * Bitbang I2C reset to unstick bus. Hold SDA low, toggle SCL 32 times to create 16
+	 * clock cycles. Note we toggle the TRIEN bit, as when TRIEN is
+	 * set the bus will be released and external pullups will
+	 * drive SCL high.
+	 */
+	for (int i = 0; i < 32; i++) {
+		i2c_cntl ^= RESET_UNIT_I2C_PAD_CTRL_TRIEN_SCL_MASK;
+		WriteReg(GetI2CPadCntlAddr(id), i2c_cntl);
+		Wait(100 * WAIT_1US);
+	}
+	/* Add stop condition- transition SDA to high while SCL is high. */
+	WriteReg(GetI2CPadCntlAddr(id), RESET_UNIT_I2C_PAD_CTRL_TRIEN_SCL_MASK);
+	Wait(100 * WAIT_1US);
+	WriteReg(GetI2CPadCntlAddr(id), RESET_UNIT_I2C_PAD_CTRL_TRIEN_SCL_MASK |
+					RESET_UNIT_I2C_PAD_CTRL_TRIEN_SCL_MASK);
+	Wait(100 * WAIT_1US);
+	/* Restore pads to input mode */
+	WriteReg(GetI2CPadCntlAddr(id), (drive_strength << RESET_UNIT_I2C_PAD_CNTL_DRV_SHIFT) |
+						RESET_UNIT_I2C_PAD_CNTL_RXEN_MASK |
+						RESET_UNIT_I2C_PAD_CNTL_TRIEN_MASK);
+	/* Return control of pads to I2C controller */
+	WriteReg(RESET_UNIT_I2C_CNTL_REG_ADDR, i2c_rst_cntl | BIT(id));
+	/* Reenable I2C controller */
+	WriteReg(GetI2CRegAddr(id, GET_I2C_OFFSET(IC_ENABLE)), 1);
+}
+
 static void WaitTxFifoEmpty(uint32_t id)
 {
 	uint32_t ic_status = 0;
@@ -217,9 +263,18 @@ static void WaitTxFifoEmpty(uint32_t id)
 static void WaitTxFifoNotFull(uint32_t id)
 {
 	uint32_t ic_status = 0;
+	uint64_t ts = k_uptime_get();
 
 	do {
 		ic_status = ReadReg(GetI2CRegAddr(id, GET_I2C_OFFSET(IC_STATUS)));
+		if (IS_ENABLED(CONFIG_TT_BH_ARC_I2C_TIMEOUT)) {
+			if ((k_uptime_get() - ts) > COND_CODE_1(CONFIG_TT_BH_ARC_I2C_TIMEOUT,
+							(CONFIG_TT_BH_ARC_I2C_TIMEOUT_DURATION),
+							(0))) {
+				I2CRecoverBus(id);
+				break;
+			}
+		}
 	} while ((ic_status & DW_APB_I2C_IC_STATUS_TFNF_MASK) == 0);
 }
 
