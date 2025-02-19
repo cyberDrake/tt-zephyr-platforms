@@ -8,6 +8,8 @@
 #include <arc/tenstorrent/tt_blackhole_smc.dtsi>
 #include "tt_blackhole-pinctrl.dtsi"
 
+#include <freq.h>
+
 / {
 	model = "Tenstorrent Blackhole board";
 	compatible = "tenstorrent,blackhole";
@@ -21,17 +23,13 @@
 };
 
 &spi0 {
-	/* Possibly W25Q64FW: 64Mbit, x1 mode*/
 	status = "okay";
 
 	spi_flash: eeprom@0 {
-		compatible = "atmel,at25";
+		compatible = "snps,designware-spi-flash";
 		reg = <0>;
-		pagesize = <256>;
-		size = <0x800000>;
-		address-width = <24>;
-		timeout = <100>;
-		spi-max-frequency = <160000000>;
+		status = "disabled";
+		spi-max-frequency = <DT_FREQ_M(3)>;
 	};
 };
 
