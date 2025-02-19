@@ -1,3 +1,4 @@
+add_subdirectory_ifdef(CONFIG_FLASH flash)
 add_subdirectory_ifdef(CONFIG_JTAG jtag)
 add_subdirectory_ifdef(CONFIG_TT_I2C_DRIVER i2c)
 add_subdirectory_ifdef(CONFIG_SENSOR sensors)
