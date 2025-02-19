@@ -21,5 +21,8 @@ if(CONFIG_SOC_TT_BLACKHOLE_SMC)
     zephyr_ld_options(-Hlib=hs48_slc_full)
   endif()
 
+  zephyr_library()
+  zephyr_library_sources(soc.c)
+
   set(SOC_LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tt_blackhole_smc.ld CACHE INTERNAL "")
 endif()
