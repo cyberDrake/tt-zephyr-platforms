@@ -308,9 +308,10 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x80070000 0x1000>;
-			interrupts = <26 1>, <24 1>, <29 1>;
+			interrupts = <26 1 0>, <24 1 0>, <29 1 0>;
+			interrupt-parent = <&ictl3>;
 			interrupt-names = "rx_avail", "tx_req", "err_int";
-			fifo-depth = <255>;
+			fifo-depth = <15>;
 			max-xfer-size = <32>;
 			clocks = <&sysclk>;
 		};
