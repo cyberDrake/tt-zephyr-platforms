@@ -116,9 +116,15 @@ static void InitMrisc(void)
 		/* TODO: Handle this more gracefully */
 		return;
 	}
+	uint32_t dram_mask = 0xff; /* bit mask */
 
+	if (get_fw_table()->has_dram_table && get_fw_table()->dram_table.dram_mask_en) {
+		dram_mask = get_fw_table()->dram_table.dram_mask;
+	}
 	for (uint8_t gddr_inst = 0; gddr_inst < 8; gddr_inst++) {
-		LoadMriscFw(gddr_inst, large_sram_buffer, fw_size);
+		if ((dram_mask >> gddr_inst) & 1) {
+			LoadMriscFw(gddr_inst, large_sram_buffer, fw_size);
+		}
 	}
 
 	if (tt_boot_fs_get_file(&boot_fs_data, kMriscFwCfgTag, large_sram_buffer, SCRATCHPAD_SIZE,
@@ -143,8 +149,10 @@ static void InitMrisc(void)
 	}
 
 	for (uint8_t gddr_inst = 0; gddr_inst < 8; gddr_inst++) {
-		LoadMriscFwCfg(gddr_inst, large_sram_buffer, fw_size);
-		ReleaseMriscReset(gddr_inst);
+		if ((dram_mask >> gddr_inst) & 1) {
+			LoadMriscFwCfg(gddr_inst, large_sram_buffer, fw_size);
+			ReleaseMriscReset(gddr_inst);
+		}
 	}
 
 	/* TODO: Check for MRISC FW success / failure */
