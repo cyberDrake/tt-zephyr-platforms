@@ -244,35 +244,35 @@ void jtag_bootrom_soft_reset_arc(struct bh_chip *chip)
 #if IS_ENABLED(CONFIG_JTAG_LOAD_BOOTROM)
 	const struct device *dev = chip->config.jtag;
 
-	uint32_t arc_misc_cntl = 0;
-
 	jtag_reset(dev);
 
 	/* HALT THE ARC CORE!!!!! */
-	jtag_axi_read32(dev, BH_RESET_BASE + 0x100, &arc_misc_cntl);
 
-	arc_misc_cntl |= (0b1111 << 4);
-	jtag_axi_write32(dev, BH_RESET_BASE + 0x100, arc_misc_cntl);
+	/* NOTE(drosen): Assuming that it is okay to set the register to 0b1111 << 4, this saves
+	 * some cycles but may lead to errors in the future.
+	 */
+	jtag_axi_write32(dev, BH_RESET_BASE + 0x100, GENMASK(7, 4));
 	/* Reset it back to zero */
-	jtag_axi_read32(dev, BH_RESET_BASE + 0x100, &arc_misc_cntl);
-	arc_misc_cntl &= ~(0b1111 << 4);
-	jtag_axi_write32(dev, BH_RESET_BASE + 0x100, arc_misc_cntl);
+	/* NOTE(drosen): Assuming that it is okay to set the register back to zero, this saves some
+	 * cycles but may lead to errors in the future.
+	 */
+	jtag_axi_write32(dev, BH_RESET_BASE + 0x100, 0);
 
 	/* Write reset_vector (rom_memory[0]) */
 	jtag_axi_write32(dev, BH_ROM_BASE, 0x84);
 
 	/* Toggle soft-reset */
 	/* ARC_MISC_CNTL.soft_reset (12th bit) */
-	jtag_axi_read32(dev, BH_RESET_BASE + 0x100, &arc_misc_cntl);
+	/* NOTE(drosen): Assuming that it is okay to set the register to 1 << 12, this saves some
+	 * cycles but may lead to errors in the future.
+	 */
+	jtag_axi_write32(dev, BH_RESET_BASE + 0x100, BIT(12));
 
-	/* Set to 1 */
-	arc_misc_cntl = arc_misc_cntl | (1 << 12);
-	jtag_axi_write32(dev, BH_RESET_BASE + 0x100, arc_misc_cntl);
-
-	jtag_axi_read32(dev, BH_RESET_BASE + 0x100, &arc_misc_cntl);
 	/* Set to 0 */
-	arc_misc_cntl = arc_misc_cntl & ~(1 << 12);
-	jtag_axi_write32(dev, BH_RESET_BASE + 0x100, arc_misc_cntl);
+	/* NOTE(drosen): Assuming that it is okay to set the register back to zero, this saves some
+	 * cycles but may lead to errors in the future.
+	 */
+	jtag_axi_write32(dev, BH_RESET_BASE + 0x100, 0);
 
 	chip->data.needs_reset = false;
 	chip->data.arc_just_reset = true;
