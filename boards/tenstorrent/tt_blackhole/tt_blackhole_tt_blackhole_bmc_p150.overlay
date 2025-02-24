@@ -4,11 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/ {
-	model = "Tenstorrent Blackhole board";
-	compatible = "tenstorrent,blackhole";
-};
-
 &jtag0 {
 	tck-gpios = <&gpiob 10 GPIO_ACTIVE_HIGH>;
 	tdi-gpios = <&gpiob 15 GPIO_ACTIVE_HIGH>;
@@ -17,35 +12,6 @@
 	trst-gpios = <&gpiod 0 GPIO_ACTIVE_LOW>;
 };
 
-&spi1 {
-	flash1: flash@0 {
-		compatible = "micron,mt25qu512", "jedec,spi-nor";
-		jedec-id = [20 bb 20];
-	};
-};
-
-&flash0 {
-	partitions {
-		slot0_partition: partition@c000 {
-			label = "image-0";
-			reg = <0x0000c000 (DT_SIZE_K(230) + DT_SIZE_K(2))>;
-		};
-
-		slot1_partition: partition@46000 {
-			label = "image-1";
-			reg = <0x00046000 (DT_SIZE_K(230))>;
-		};
-	};
-};
-
-&i2c1 {
-	pinctrl-0 = <&i2c1_scl_pa9 &i2c1_sda_pa10>;
-	pinctrl-names = "default";
-	status = "okay";
-	clock-frequency = <I2C_BITRATE_FAST>;
-};
-
-&smbus1 {
-	compatible = "st,tt-stm32-smbus";
-	status = "okay";
+&flash1 {
+	jedec-id = [20 bb 20];
 };
