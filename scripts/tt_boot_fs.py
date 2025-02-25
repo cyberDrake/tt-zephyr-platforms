@@ -14,6 +14,11 @@ from typing import Any, Callable, cast, Iterable, Optional, Tuple
 import yaml
 import argparse
 import sys
+from base64 import b16encode
+import json
+import shutil
+import tarfile
+import tempfile
 
 try:
     from yaml import CSafeLoader as SafeLoader
@@ -735,6 +740,44 @@ def fsck(path: Path, alignment: int = 0x1000) -> bool:
     return fs is not None
 
 
+def mkbundle(image: Path, output: Path, board: str):
+    bundle_dir = Path(tempfile.mkdtemp())
+    try:
+        # Todo- this manifest should be populated with version information in
+        # the future
+        manifest = {
+            "version": "0.0.0",
+            "bundle_version": {"fwId": 0, "releaseId": 0, "patch": 2, "debug": 0},
+        }
+        with open(bundle_dir / "manifest.json", "w") as file:
+            file.write(json.dumps(manifest))
+        board_dir = bundle_dir / board
+        board_dir.mkdir()
+        mask = [{"tag": "write-boardcfg"}]
+        with open(board_dir / "mask.json", "w") as file:
+            file.write(json.dumps(mask))
+        mapping = []
+        with open(board_dir / "mapping.json", "w") as file:
+            file.write(json.dumps(mapping))
+        with open(image, "rb") as img:
+            binary = img.read()
+            # Convert image to base16 encoded ascii to conform to
+            # tt-flash format
+            b16out = b16encode(binary).decode("ascii")
+        with open(board_dir / "image.bin", "w") as img:
+            img.write(b16out)
+
+        # Compress output as tar.gz
+        if output.exists():
+            output.unlink()
+        with tarfile.open(output, "x:gz") as tar:
+            tar.add(bundle_dir, arcname=".")
+        shutil.rmtree(bundle_dir)
+    except Exception as e:
+        shutil.rmtree(bundle_dir)
+        raise e
+
+
 def invoke_mkfs(args):
     if not args.specification.exists():
         print(f"Specification file {args.specification} doesn't exist")
@@ -754,6 +797,14 @@ def invoke_fsck(args):
         return os.EX_DATAERR
     valid = fsck(args.filesystem)
     print(f"Filesystem {args.filesystem} is {'valid' if valid else 'invalid'}")
+    return os.EX_OK
+
+
+def invoke_fwbundle(args):
+    if not args.bootfs.exists():
+        raise RuntimeError("File {args.bootfs} doesn't exist")
+    mkbundle(args.bootfs, args.output_bundle, args.board)
+    print(f"Wrote fwbundle for {args.board} to {args.output_bundle}")
     return os.EX_OK
 
 
@@ -777,6 +828,16 @@ def parse_args():
         "filesystem", metavar="FS", help="filesystem to check", type=Path
     )
     fsck_parser.set_defaults(func=invoke_fsck)
+    # Create a firmware update bundle
+    bundle_parser = subparsers.add_parser("fwbundle", help="manage firmware bundle")
+    bundle_parser.add_argument(
+        "bootfs", metavar="FS", help="tt_boot_fs binary", type=Path
+    )
+    bundle_parser.add_argument("board", metavar="BOARD", help="board name", type=str)
+    bundle_parser.add_argument(
+        "output_bundle", metavar="BUNDLE", help="bundle file name", type=Path
+    )
+    bundle_parser.set_defaults(func=invoke_fwbundle)
     return parser.parse_args()
 
 
