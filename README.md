@@ -38,9 +38,6 @@ source zephyr-env.sh
 
 ### Build, Flash, Debug & Test BMC FW
 
-Note: Currently, [JLink software](https://www.segger.com/downloads/jlink/) is used to flash BMC FW.
-Please download and install it.
-
 **Build, flash, and view output from the target with `west`**
 ```shell
 # Set up a convenience variable for BMC FW
@@ -76,14 +73,26 @@ TODO: enable app debug logs
 **Build and run tests on hardware with `twister`**
 ```shell
 twister -i -p $BOARD --device-testing --west-flash \
-  --device-serial-pty rtt --west-runner jlink \
+  --device-serial-pty rtt --west-runner openocd \
   -s samples/hello_world/sample.basic.helloworld.rtt \
   -s tests/boot/test_mcuboot/bootloader.mcuboot.rtt
 ```
 
 **Re-flash stable firmware**
+Note: `fw.hex` is mostly available on CI machines at this time although nothing prevents any
+developer from creating a similar directory structure and firmware hex file on developer machines.
+The file `fw.hex` is a concatenation of the mcuboot `zephyr.bin` and the `app/smc`
+`zephyr.signed.bin` concatenated with the tool `srec_cat`.
+
 ```shell
-west flash --skip-rebuild -d /opt/tenstorrent/fw/stable/$BOARD_SANITIZED
+./scripts/bmc-reset.py /opt/tenstorrent/fw/stable/$BOARD_SANITIZED/fw.hex
+./scripts/rescan-pcie.sh
+```
+
+**Reset the BMC via OpenOCD (I.e. Soft-Reset the Card)**
+```shell
+./scripts/bmc-reset.py
+./scripts/rescan-pcie.sh
 ```
 
 ### Build, Flash, and Debug SMC FW
@@ -99,9 +108,9 @@ BOARD=tt_blackhole/tt_blackhole/smc
 
 west build -p -S rtt-console -b $BOARD ../$MODULE.git/app/smc
 # Flash mcuboot and the app
-west flash -r openocd --cmd-pre-init "adapter serial $SERIAL"
+west flash --cmd-pre-init "adapter serial $SERIAL"
 # Attach a debugger
-west attach -r openocd --cmd-pre-init "adapter serial $SERIAL"
+west attach --cmd-pre-init "adapter serial $SERIAL"
 ```
 
 TODO: enable app debug logs
