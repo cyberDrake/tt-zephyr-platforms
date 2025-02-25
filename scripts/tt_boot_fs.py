@@ -12,6 +12,8 @@ import pykwalify.core
 import struct
 from typing import Any, Callable, cast, Iterable, Optional, Tuple
 import yaml
+import argparse
+import sys
 
 try:
     from yaml import CSafeLoader as SafeLoader
@@ -733,15 +735,58 @@ def fsck(path: Path, alignment: int = 0x1000) -> bool:
     return fs is not None
 
 
-# TODO: create parse_args(), main() functions, subcommands, etc
-# This file can be both a script and a module.
-#
-# E.g.
-#  * tt_boot_fs.py mkfs <spec.yml> <output.bin>
-#  * tt_boot_fs.py fsck <fs.bin>
-#  * tt_boot_fs.py base64 -i <fs.bin> -o <fs.txt>
-#  * tt_boot_fs.py base64 -d -i <fs.txt> -o <fs.bin>
-#  * tt_boot_fs.py bundle create ...
-#  * tt_boot_fs.py bundle list ...
-#  * tt_boot_fs.py bundle verify ...
-#  * tt_boot_fs.py bundle extract ...
+def invoke_mkfs(args):
+    if not args.specification.exists():
+        print(f"Specification file {args.specification} doesn't exist")
+        return os.EX_DATAERR
+    binary = mkfs(args.specification)
+    if binary is None:
+        return os.EX_DATAERR
+    with open(args.output_bin, "wb") as file:
+        file.write(binary)
+    print(f"Wrote tt_boot_fs to {args.output_bin}")
+    return os.EX_OK
+
+
+def invoke_fsck(args):
+    if not args.filesystem.exists():
+        print(f"File {args.filesystem} doesn't exist")
+        return os.EX_DATAERR
+    valid = fsck(args.filesystem)
+    print(f"Filesystem {args.filesystem} is {'valid' if valid else 'invalid'}")
+    return os.EX_OK
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Utility to manage tt_boot_fs binaries", allow_abbrev=False
+    )
+    subparsers = parser.add_subparsers()
+    # MKFS command- build a tt_boot_fs given a specification
+    mkfs_parser = subparsers.add_parser("mkfs", help="Make tt_boot_fs filesystem")
+    mkfs_parser.add_argument(
+        "specification", metavar="SPEC", help="filesystem specification", type=Path
+    )
+    mkfs_parser.add_argument(
+        "output_bin", metavar="OUT", help="output binary file", type=Path
+    )
+    mkfs_parser.set_defaults(func=invoke_mkfs)
+    # Check a filesystem for validity
+    fsck_parser = subparsers.add_parser("fsck", help="Check tt_boot_fs filesystem")
+    fsck_parser.add_argument(
+        "filesystem", metavar="FS", help="filesystem to check", type=Path
+    )
+    fsck_parser.set_defaults(func=invoke_fsck)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    if hasattr(args, "func"):
+        return args.func(args)
+    print("Error, a command must be supplied (try passing --help)")
+    return os.EX_NOINPUT
+
+
+if __name__ == "__main__":
+    sys.exit(main())
