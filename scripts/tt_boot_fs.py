@@ -255,9 +255,10 @@ class BootImage:
     load_addr: int
 
     @staticmethod
-    def _resolve_environment_variables(value: str):
-        # Special case ROOT
-        value = value.replace("$ROOT", str(ROOT))
+    def _resolve_environment_variables(value: str, env: dict):
+        # Replace value with any environment settings
+        for k, v in env.items():
+            value = value.replace(k, v)
 
         return value
 
@@ -273,8 +274,8 @@ class BootImage:
         return eval(source)
 
     @staticmethod
-    def loads(tag: str, data: dict[str, Any], alignment: FileAlignment):
-        expanded_path = BootImage._resolve_environment_variables(data["binary"])
+    def loads(tag: str, data: dict[str, Any], alignment: FileAlignment, env: dict):
+        expanded_path = BootImage._resolve_environment_variables(data["binary"], env)
         if not os.path.isfile(expanded_path):
             raise ValueError(f"path {expanded_path} is not a file")
 
@@ -603,7 +604,7 @@ class FileImage:
     failover: BootImage
 
     @staticmethod
-    def load(path: str):
+    def load(path: str, env: dict):
         try:
             schema = yaml.load(open(SCHEMA_PATH, "r"), Loader=SafeLoader)
             data = yaml.load(open(path, "r"), Loader=SafeLoader)
@@ -620,7 +621,7 @@ class FileImage:
             ent_name = ent["name"]
             if ent_name in images:
                 raise ValueError(f"Found duplicate image name '{ent_name}'")
-            images[ent_name] = BootImage.loads(ent_name, ent, alignment)
+            images[ent_name] = BootImage.loads(ent_name, ent, alignment, env)
 
         return FileImage(
             name=data["name"],
@@ -628,7 +629,7 @@ class FileImage:
             gen_name=data["gen_name"],
             alignment=alignment,
             images=images,
-            failover=BootImage.loads("", data["fail_over_image"], alignment),
+            failover=BootImage.loads("", data["fail_over_image"], alignment, env),
         )
 
     def to_boot_fs(self):
@@ -721,10 +722,10 @@ def cksum(data: bytes):
     return calculated_checksum
 
 
-def mkfs(path: Path) -> bytes:
+def mkfs(path: Path, env={"$ROOT": str(ROOT)}) -> bytes:
     fi = None
     try:
-        fi = FileImage.load(path)
+        fi = FileImage.load(path, env)
         return fi.to_boot_fs().to_binary()
     except Exception as e:
         _logger.error(f"Exception: {e}")
@@ -782,7 +783,11 @@ def invoke_mkfs(args):
     if not args.specification.exists():
         print(f"Specification file {args.specification} doesn't exist")
         return os.EX_DATAERR
-    binary = mkfs(args.specification)
+    if args.build_dir and args.build_dir.exists():
+        env = {"$ROOT": str(ROOT), "$BUILD_DIR": str(args.build_dir)}
+        binary = mkfs(args.specification, env)
+    else:
+        binary = mkfs(args.specification)
     if binary is None:
         return os.EX_DATAERR
     with open(args.output_bin, "wb") as file:
@@ -820,6 +825,12 @@ def parse_args():
     )
     mkfs_parser.add_argument(
         "output_bin", metavar="OUT", help="output binary file", type=Path
+    )
+    mkfs_parser.add_argument(
+        "--build-dir",
+        metavar="BUILD",
+        help="build directory to read images from",
+        type=Path,
     )
     mkfs_parser.set_defaults(func=invoke_mkfs)
     # Check a filesystem for validity
