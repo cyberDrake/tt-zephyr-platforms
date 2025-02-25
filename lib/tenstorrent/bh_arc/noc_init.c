@@ -174,7 +174,9 @@ void NocInit(void)
 				WriteNocCfgReg(noc_regs, ROUTER_CFG(0), router_cfg_0);
 			}
 
-			EnableOverlayCg(kTlbIndex, px, py);
+			if (cg_en) {
+				EnableOverlayCg(kTlbIndex, px, py);
+			}
 		}
 	}
 
