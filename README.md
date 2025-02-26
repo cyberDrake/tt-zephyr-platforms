@@ -79,6 +79,7 @@ twister -i -p $BOARD --device-testing --west-flash \
 ```
 
 **Re-flash stable firmware**
+
 Note: `fw.hex` is mostly available on CI machines at this time although nothing prevents any
 developer from creating a similar directory structure and firmware hex file on developer machines.
 The file `fw.hex` is a concatenation of the mcuboot `zephyr.bin` and the `app/smc`
