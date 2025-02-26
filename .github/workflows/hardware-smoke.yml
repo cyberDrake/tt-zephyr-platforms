@@ -106,7 +106,22 @@ jobs:
             --hardware-map /opt/tenstorrent/twister/hw-map.yml --west-flash \
             --tag smoke \
             --alt-config-root ../tt-zephyr-platforms/test-conf/samples \
-            --alt-config-root ../tt-zephyr-platforms/test-conf/tests
+            --alt-config-root ../tt-zephyr-platforms/test-conf/tests \
+            --outdir twister-bmc-smoke
+
+      - name: Upload BMC Smoke Tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: BMC Smoke test results
+          path: |
+            zephyr/twister-bmc-smoke/**/handler.log
+            zephyr/twister-bmc-smoke/**/zephyr.dts
+            zephyr/twister-bmc-smoke/**/.config
+            zephyr/twister-bmc-smoke/**/*.map
+            zephyr/twister-bmc-smoke/**/zephyr.elf
+            zephyr/twister-bmc-smoke/**/*.lst
+            zephyr/twister-bmc-smoke/twister.log
+            zephyr/twister-bmc-smoke/twister.json
 
       - name: run-smc-tests
         working-directory: zephyr
@@ -137,7 +152,23 @@ jobs:
             --hardware-map /opt/tenstorrent/twister/hw-map.yml --west-flash \
             --tag smoke \
             --alt-config-root ../tt-zephyr-platforms/test-conf/samples \
-            --alt-config-root ../tt-zephyr-platforms/test-conf/tests
+            --alt-config-root ../tt-zephyr-platforms/test-conf/tests \
+            --outdir twister-smc-smoke
+
+      - name: Upload SMC Smoke Tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: SMC Smoke test results
+          path: |
+            zephyr/twister-smc-smoke/**/handler.log
+            zephyr/twister-smc-smoke/**/zephyr.dts
+            zephyr/twister-smc-smoke/**/.config
+            zephyr/twister-smc-smoke/**/*.map
+            zephyr/twister-smc-smoke/**/zephyr.elf
+            zephyr/twister-smc-smoke/**/*.lst
+            zephyr/twister-smc-smoke/twister.log
+            zephyr/twister-smc-smoke/twister.json
+
       - name: cleanup
         if: ${{ always() }}
         run: |
@@ -252,14 +283,30 @@ jobs:
             --tag e2e \
             -p tt_blackhole/tt_blackhole/bmc --device-testing \
             --hardware-map /opt/tenstorrent/twister/hw-map.yml --west-flash \
-            -T ../tt-zephyr-platforms/app -ll DEBUG
+            -T ../tt-zephyr-platforms/app -ll DEBUG \
+            --outdir twister-bmc-e2e
           # Run E2E test to verify BMC and SMC firmware boot, and that
           # the SMC firmware sets up PCIe and ARC messages
           ./scripts/twister -i --retry-failed 3 \
             -p tt_blackhole/tt_blackhole/smc --device-testing \
             --tag e2e \
             --hardware-map /opt/tenstorrent/twister/hw-map.yml --west-flash \
-            -T ../tt-zephyr-platforms/app -ll DEBUG
+            -T ../tt-zephyr-platforms/app -ll DEBUG \
+            --outdir twister-smc-e2e
+
+      - name: Upload E2E Test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: E2E test results
+          path: |
+            zephyr/twister-*-e2e/**/handler.log
+            zephyr/twister-*-e2e/**/zephyr.dts
+            zephyr/twister-*-e2e/**/.config
+            zephyr/twister-*-e2e/**/*.map
+            zephyr/twister-*-e2e/**/zephyr.elf
+            zephyr/twister-*-e2e/**/*.lst
+            zephyr/twister-*-e2e/twister.log
+            zephyr/twister-*-e2e/twister.json
 
       - name: cleanup
         if: ${{ always() }}
