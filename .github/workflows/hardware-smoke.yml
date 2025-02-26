@@ -117,7 +117,15 @@ jobs:
           BH_FW_DIR: "${{ github.workspace }}/tt-zephyr-platforms"
           AFTER_SCRIPT: "${{ github.workspace }}/tt-zephyr-platforms/scripts/restore-stable-bmfw.sh"
         run: |
-          # This needs to be added to the github runner
+          # Flash the BMFW app back onto the BMC. Otherwise the flash device
+          # will not be muxed to the SMC, and flash tests will fail
+          ./scripts/twister -i --retry-failed 3 \
+            --retry-interval 5 \
+            --tag e2e \
+            -p tt_blackhole/tt_blackhole/bmc --device-testing \
+            --hardware-map /opt/tenstorrent/twister/hw-map.yml --west-flash \
+            -T ../tt-zephyr-platforms/app -ll DEBUG \
+            --outdir twister-bmc-e2e
 
           # The '-q' argument to west (which '--device-serial-pty rtt' depends on) was only added to west
           # as of v1.3.0, v1.2.0 does not have it, so we need to update west here.
@@ -125,7 +133,7 @@ jobs:
 
           # Run tests tagged with "smoke"
           ./scripts/twister -i --retry-failed 3 \
-            -p tt_blackhole/tt_blackhole/bmc --device-testing \
+            -p tt_blackhole/tt_blackhole/smc --device-testing \
             --hardware-map /opt/tenstorrent/twister/hw-map.yml --west-flash \
             --tag smoke \
             --alt-config-root ../tt-zephyr-platforms/test-conf/samples \
