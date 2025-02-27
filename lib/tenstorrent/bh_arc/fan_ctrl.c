@@ -54,29 +54,30 @@ static uint16_t read_max_gddr_temp(void)
 STATIC uint32_t fan_curve(float max_asic_temp, float max_gddr_temp)
 {
 	/* P150 fan curve: could be a part of device tree once added to the driver model */
-	/* static const uint32_t fan_rpm[] = {1800, 1990, 2170, 2400, 2650, 2885, 3155, 3440, 4800,
-	 * 5380};
-	 */
-	static const uint32_t fan_pwm[] = {35, 40, 45, 50, 55, 60, 65, 70, 90, 100};
-	static const float gddr_temps[] = {46.0, 52.0, 59.0, 64.0, 68.0, 71.0, 74.0, 77.0, 80.0};
-	static const float asic_temps[] = {52.0, 56.0, 60.0, 65.0, 70.0, 74.0, 80.0, 85.0, 92.0};
+	uint32_t fan_speed1;
+	uint32_t fan_speed2;
 
-	BUILD_ASSERT(ARRAY_SIZE(gddr_temps) == ARRAY_SIZE(asic_temps));
-	BUILD_ASSERT(ARRAY_SIZE(fan_pwm) == ARRAY_SIZE(asic_temps) + 1);
-
-	uint32_t fan_speed1 = fan_pwm[0];
-	uint32_t fan_speed2 = fan_pwm[0];
-
-	for (int i = 0; i < ARRAY_SIZE(asic_temps); i++) {
-		if (max_asic_temp >= asic_temps[i]) {
-			fan_speed1 = fan_pwm[i + 1];
-		}
-		if (max_gddr_temp >= gddr_temps[i]) {
-			fan_speed2 = fan_pwm[i + 1];
-		}
+	if (max_asic_temp < 49) {
+		fan_speed1 = 35;
+	} else if (max_asic_temp < 90) {
+		fan_speed1 =
+			(uint32_t)(0.03867f * (max_asic_temp - 49.0f) * (max_asic_temp - 49.0f)) +
+			35;
+	} else {
+		fan_speed1 = 100;
 	}
 
-	return (fan_speed1 > fan_speed2) ? fan_speed1 : fan_speed2;
+	if (max_gddr_temp < 43) {
+		fan_speed2 = 35;
+	} else if (max_gddr_temp < 82) {
+		fan_speed2 =
+			(uint32_t)(0.04274f * (max_gddr_temp - 43.0f) * (max_gddr_temp - 43.0f)) +
+			35;
+	} else {
+		fan_speed2 = 100;
+	}
+
+	return MAX(fan_speed1, fan_speed2);
 }
 
 static void update_fan_speed(void)
