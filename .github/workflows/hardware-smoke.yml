@@ -110,6 +110,7 @@ jobs:
             --outdir twister-bmc-smoke
 
       - name: Upload BMC Smoke Tests
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: BMC Smoke test results
@@ -156,6 +157,7 @@ jobs:
             --outdir twister-smc-smoke
 
       - name: Upload SMC Smoke Tests
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: SMC Smoke test results
@@ -295,6 +297,7 @@ jobs:
             --outdir twister-smc-e2e
 
       - name: Upload E2E Test results
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: E2E test results
