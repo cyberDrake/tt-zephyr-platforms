@@ -11,6 +11,7 @@
 #define FAN1_CONFIG_1   0x10
 #define FAN1_CONFIG_2A  0x11
 #define FAN1_CONFIG_3   0x13
+#define TACH1           0x20
 #define FAN1_DUTY_CYCLE 0x26
 
 /**
@@ -30,8 +31,15 @@ int init_fan(void);
 int set_fan_speed(uint8_t fan_speed);
 
 /**
- * @brief Get current fan speed from fan controller.
+ * @brief Get current fan duty cycle in percentage.
  *
  * @retval Fan speed percentage.
  */
-uint8_t get_fan_speed(void);
+uint8_t get_fan_duty_cycle(void);
+
+/**
+ * @brief Get current fan RPM from fan tachometer.
+ *
+ * @retval Fan RPM.
+ */
+uint16_t get_fan_rpm(void);

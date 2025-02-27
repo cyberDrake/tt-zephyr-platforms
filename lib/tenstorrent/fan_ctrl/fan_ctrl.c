@@ -52,7 +52,7 @@ int set_fan_speed(uint8_t fan_speed)
 	return ret;
 }
 
-uint8_t get_fan_speed(void)
+uint8_t get_fan_duty_cycle(void)
 {
 	uint8_t pwm_setting;
 
@@ -60,5 +60,20 @@ uint8_t get_fan_speed(void)
 	uint8_t fan_speed = pwm_setting / 1.2;
 
 	LOG_DBG("FAN1_DUTY_CYCLE (converted to percentage): %d", fan_speed);
+
 	return fan_speed;
+}
+
+uint16_t get_fan_rpm(void)
+{
+	uint8_t tach_count;
+	uint16_t rpm_range = 16000; /* RPM range is maximum */
+
+	smbus_byte_data_read(smbus1, FAN_CTRL_ADDR, TACH1, &tach_count);
+	uint16_t rpm = rpm_range * 30 / tach_count;
+
+	LOG_DBG("TACH1 count: %d", tach_count);
+	LOG_DBG("Fan RPM: %d", rpm);
+
+	return rpm;
 }
