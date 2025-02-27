@@ -40,12 +40,16 @@ static tt_boot_fs boot_fs;
 #ifdef CONFIG_BOARD_QEMU_X86
 #define FLASH0_NODE DT_INST(0, zephyr_sim_flash)
 #define FLASH1_NODE FLASH0_NODE
+#define ERASE_BLOCK_SIZE DT_PROP(DT_NODELABEL(flash_sim0), erase_block_size)
+#define WRITE_BLOCK_SIZE DT_PROP(DT_NODELABEL(flash_sim0), write_block_size)
 
 static const struct device *const flash1_dev = DEVICE_DT_GET(FLASH1_NODE);
 /* For testing, we construct a fake image in slot0_partition, which may not be at offset 0 */
 #define TT_BOOT_FS_OFFSET DT_REG_ADDR(DT_NODELABEL(storage_partition))
 #else
 #define FLASH0_NODE       DT_NODELABEL(flash) /* "flash" (NOT "flash0") is internal flash */
+#define ERASE_BLOCK_SIZE DT_PROP(DT_NODELABEL(flash0), erase_block_size)
+#define WRITE_BLOCK_SIZE DT_PROP(DT_NODELABEL(flash0), write_block_size)
 
 static const struct device *flash1_dev;
 static struct gpio_dt_spec spi_mux;
@@ -84,11 +88,6 @@ int tt_fwupdate_complete(void)
 	return 0;
 }
 #endif
-
-/* minimum size for an erase (this should be available from DT */
-#define ERASE_BLOCK_SIZE 2048
-/* minimum size for a write (this should also be availble from DT) */
-#define WRITE_BLOCK_SIZE 8
 
 static const struct device *const flash0_dev = DEVICE_DT_GET(FLASH0_NODE);
 /* Should just be an enable on the flash/spi */
@@ -321,8 +320,10 @@ int tt_fwupdate_flash_image(const tt_boot_fs_fd *fd)
 {
 	int rc;
 	uint8_t write_buf[CONFIG_TT_FWUPDATE_WRITE_BUF_SIZE];
-	size_t write_size = flash_get_write_block_size(flash0_dev);
-	size_t erase_size = ROUND_UP(fd->flags.f.image_size, write_size);
+	size_t write_size = ROUND_UP(fd->flags.f.image_size,
+				     WRITE_BLOCK_SIZE);
+	size_t erase_size = ROUND_UP(fd->flags.f.image_size,
+				     ERASE_BLOCK_SIZE);
 
 	__ASSERT(write_size <= sizeof(write_buf), "write_size %zu exceeds sizeof(write_buf) %zu",
 		 write_size, sizeof(write_buf));
@@ -335,7 +336,7 @@ int tt_fwupdate_flash_image(const tt_boot_fs_fd *fd)
 
 	rc = flash_erase(flash0_dev, DT_REG_ADDR(DT_NODELABEL(slot1_partition)), erase_size) ||
 	     flash_copy(flash1_dev, fd->spi_addr, flash0_dev,
-			DT_REG_ADDR(DT_NODELABEL(slot1_partition)), fd->flags.f.image_size,
+			DT_REG_ADDR(DT_NODELABEL(slot1_partition)), write_size,
 			write_buf, sizeof(write_buf));
 	if (rc < 0) {
 		LOG_DBG("flash_erase() or flash_copy() failed: %d", rc);
