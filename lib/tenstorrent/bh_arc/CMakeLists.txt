@@ -65,3 +65,38 @@ include(nanopb)
 zephyr_nanopb_sources(bh_arc spirom_protobufs/fw_table.proto)
 zephyr_nanopb_sources(bh_arc spirom_protobufs/read_only.proto)
 zephyr_nanopb_sources(bh_arc spirom_protobufs/flash_info.proto)
+
+set(PROTOC ${PROTOBUF_PROTOC_EXECUTABLE})
+set(SPIROM_PROTOBUFS ${ZEPHYR_CURRENT_MODULE_DIR}/lib/tenstorrent/bh_arc/spirom_protobufs)
+
+message(STATUS "Generating Python files from protobufs")
+set(OUTPUT_DIR ${ZEPHYR_BINARY_DIR}/python_proto_files)
+file(MAKE_DIRECTORY ${OUTPUT_DIR})
+set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
+	COMMAND ${PROTOC} --python_out=${OUTPUT_DIR} ${SPIROM_PROTOBUFS}/fw_table.proto -I ${SPIROM_PROTOBUFS}
+	COMMAND ${PROTOC} --python_out=${OUTPUT_DIR} ${SPIROM_PROTOBUFS}/read_only.proto -I ${SPIROM_PROTOBUFS}
+	COMMAND ${PROTOC} --python_out=${OUTPUT_DIR} ${SPIROM_PROTOBUFS}/flash_info.proto -I ${SPIROM_PROTOBUFS}
+)
+
+if(BOARD STREQUAL "tt_blackhole")
+  # Map board revision names to folder names for spirom config data
+  if(BOARD_REVISION STREQUAL p100)
+    set(PROD_NAME "P100")
+  elseif(BOARD_REVISION STREQUAL p150)
+    set(PROD_NAME "P150")
+  else()
+    message(FATAL_ERROR "Unknown board revision for ${BOARD}: ${BOARD_REVISON}")
+  endif()
+elseif(BOARD STREQUAL "native_sim")
+  # Use P100 data files to stand in
+  set(PROD_NAME "P100")
+endif()
+
+message(STATUS "Generating rom configuration binary files for ${PROD_NAME}")
+
+# variable is needed to avoid protobuf version clashing
+set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
+	COMMAND PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+	  ${PYTHON_EXECUTABLE} ${ZEPHYR_CURRENT_MODULE_DIR}/scripts/encode_spirom_bins.py
+	  --board ${PROD_NAME} --build-dir ${CMAKE_BINARY_DIR} --output ${CMAKE_BINARY_DIR}/generated_board_cfg
+)
