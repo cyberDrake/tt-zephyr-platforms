@@ -26,6 +26,7 @@ struct bh_chip_config {
 	struct gpio_dt_spec spi_reset;
 	struct gpio_dt_spec spi_mux;
 	struct gpio_dt_spec pgood;
+	struct gpio_dt_spec therm_trip;
 	const struct device *flash;
 	const struct device *jtag;
 
@@ -55,6 +56,7 @@ struct bh_chip_data {
 struct bh_chip {
 	const struct bh_chip_config config;
 	struct bh_chip_data data;
+	struct gpio_callback therm_trip_cb;
 };
 
 #define DT_PHANDLE_OR_CHILD(node_id, name)                                                         \
@@ -90,6 +92,9 @@ extern struct bh_chip BH_CHIPS[BH_CHIP_COUNT];
 			.pgood = GPIO_DT_SPEC_GET(                                                 \
 				DT_PHANDLE_OR_CHILD(DT_PHANDLE_BY_IDX(n, prop, idx), pgood),       \
 				gpios),                                                            \
+			.therm_trip = GPIO_DT_SPEC_GET(                                            \
+				DT_PHANDLE_OR_CHILD(DT_PHANDLE_BY_IDX(n, prop, idx), therm_trip),  \
+				gpios),                                                            \
 			.strapping = {COND_CODE_1(                                                 \
 	  HAS_DT_PHANDLE_OR_CHILD(DT_PHANDLE_BY_IDX(n, prop, idx), strapping),                     \
 	  (DT_FOREACH_CHILD(DT_PHANDLE_OR_CHILD(DT_PHANDLE_BY_IDX(n, prop, idx), strapping),       \
@@ -120,7 +125,9 @@ void bh_chip_deassert_asic_reset(const struct bh_chip *chip);
 void bh_chip_assert_spi_reset(const struct bh_chip *chip);
 void bh_chip_deassert_spi_reset(const struct bh_chip *chip);
 
-int bh_chip_reset(const struct bh_chip *chip, bool force_reset);
+int bh_chip_reset_chip(struct bh_chip *chip, bool force_reset);
+
+int therm_trip_gpio_setup(struct bh_chip *chip);
 
 #ifdef __cplusplus
 }

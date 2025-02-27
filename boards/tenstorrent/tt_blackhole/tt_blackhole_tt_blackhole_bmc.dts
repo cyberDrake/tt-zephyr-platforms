@@ -39,6 +39,12 @@
 			gpios = <&gpioc 14 GPIO_PULL_DOWN>;
 		};
 
+		therm_trip {
+			compatible = "zephyr,gpio-line";
+			label = "Thermal trip indicator";
+			gpios = <&gpioc 13 GPIO_ACTIVE_HIGH>;
+		};
+
 		jtag0: jtag {
 			compatible = "zephyr,jtag-gpio";
 			port-write-cycles = <2>;

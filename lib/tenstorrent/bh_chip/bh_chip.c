@@ -5,6 +5,7 @@
  */
 
 #include <tenstorrent/bh_chip.h>
+#include <tenstorrent/fan_ctrl.h>
 
 #include <zephyr/kernel.h>
 #include <string.h>
@@ -30,8 +31,7 @@ cm2bmMessageRet bh_chip_get_cm2bm_message(struct bh_chip *chip)
 
 	k_mutex_lock(&chip->data.reset_lock, K_FOREVER);
 
-	output.ret =
-		bharc_smbus_block_read(&chip->config.arc, 0x10, &count, buf);
+	output.ret = bharc_smbus_block_read(&chip->config.arc, 0x10, &count, buf);
 	memcpy(&output.msg, buf, sizeof(output.msg));
 
 	if (output.ret == 0 && output.msg.msg_id != 0) {
@@ -97,4 +97,36 @@ void bh_chip_deassert_spi_reset(const struct bh_chip *chip)
 int bh_chip_reset_chip(struct bh_chip *chip, bool force_reset)
 {
 	return jtag_bootrom_reset_sequence(chip, force_reset);
+}
+
+void therm_trip_detected(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+{
+	/* Ramp up fan */
+	if (IS_ENABLED(CONFIG_TT_FAN_CTRL)) {
+		set_fan_speed(100);
+	}
+	/* Assert ASIC reset */
+	struct bh_chip *chip = CONTAINER_OF(cb, struct bh_chip, therm_trip_cb);
+
+	bh_chip_reset_chip(chip, true);
+}
+
+int therm_trip_gpio_setup(struct bh_chip *chip)
+{
+	/* Set up therm trip interrupt */
+	int ret;
+
+	ret = gpio_pin_configure_dt(&chip->config.therm_trip, GPIO_INPUT);
+	if (ret != 0) {
+		return ret;
+	}
+	ret = gpio_pin_interrupt_configure_dt(&chip->config.therm_trip, GPIO_INT_EDGE_TO_ACTIVE);
+	if (ret != 0) {
+		return ret;
+	}
+	gpio_init_callback(&chip->therm_trip_cb, therm_trip_detected,
+			   BIT(chip->config.therm_trip.pin));
+	ret = gpio_add_callback(chip->config.therm_trip.port, &chip->therm_trip_cb);
+
+	return ret;
 }

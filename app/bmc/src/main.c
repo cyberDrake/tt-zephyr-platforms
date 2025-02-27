@@ -167,8 +167,17 @@ int main(void)
 
 	if (IS_ENABLED(CONFIG_TT_FAN_CTRL)) {
 		ret = init_fan();
+		set_fan_speed(100); /* Set fan speed to 100 by default */
 		if (ret != 0) {
 			LOG_ERR("%s() failed: %d", "init_fan", ret);
+			return ret;
+		}
+	}
+
+	ARRAY_FOR_EACH_PTR(BH_CHIPS, chip) {
+		ret = therm_trip_gpio_setup(chip);
+		if (ret != 0) {
+			LOG_ERR("%s() failed: %d", "therm_trip_gpio_setup", ret);
 			return ret;
 		}
 	}
