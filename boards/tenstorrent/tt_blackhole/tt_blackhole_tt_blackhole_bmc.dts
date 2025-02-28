@@ -49,11 +49,10 @@
 			compatible = "zephyr,jtag-gpio";
 			port-write-cycles = <2>;
 
-			/* Note: for p100 and p100a board revisions only */
-			tck-gpios = <&gpiob 8 GPIO_ACTIVE_HIGH>;
-			tdi-gpios = <&gpiod 3 GPIO_ACTIVE_HIGH>;
-			tdo-gpios = <&gpiod 2 GPIO_PULL_UP>;
-			tms-gpios = <&gpiob 9 GPIO_ACTIVE_HIGH>;
+			tck-gpios = <&gpiob 10 GPIO_ACTIVE_HIGH>;
+			tdi-gpios = <&gpiob 15 GPIO_ACTIVE_HIGH>;
+			tdo-gpios = <&gpiob 1 GPIO_PULL_UP>;
+			tms-gpios = <&gpiob 2 GPIO_ACTIVE_HIGH>;
 			trst-gpios = <&gpiod 0 GPIO_ACTIVE_LOW>;
 		};
 
@@ -180,9 +179,7 @@
 		has-dpd;
 		t-enter-dpd = <3000>;
 		t-exit-dpd = <30000>;
-
-		/* jedec,jesd216 properties (Note: for p100 and p100a board revisions only) */
-		jedec-id = [2c 5b 1a];
+		jedec-id = [20 bb 20];
 	};
 };
 
