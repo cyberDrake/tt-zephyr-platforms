@@ -33,6 +33,7 @@
 #define DDR_COORD_TRANSLATE_TABLE(n) ((n) + 0x16)
 
 /* NIU_CFG_0 fields */
+#define NIU_CFG_0_TILE_CLK_OFF          12
 #define NIU_CFG_0_TILE_HEADER_STORE_OFF 13 /* NOC2AXI only */
 #define NIU_CFG_0_NOC_ID_TRANSLATE_EN   14
 #define NIU_CFG_0_AXI_SLAVE_ENABLE      15
@@ -141,6 +142,17 @@ static void ProgramBroadcastExclusion(uint16_t disabled_tensix_columns)
 	}
 }
 
+static bool GetTileClkDisable(uint8_t px, uint8_t py)
+{
+	/* Tile clock disable for disabled Tensix columns */
+	if (px >= 1 && px <= 14 && py >= 2) {
+		uint8_t tensix_x = px - 1;
+
+		return !IS_BIT_SET(tile_enable.tensix_col_enabled, tensix_x);
+	}
+	return false;
+}
+
 void NocInit(void)
 {
 	uint32_t niu_cfg_0_updates =
@@ -166,6 +178,8 @@ void NocInit(void)
 				uint32_t niu_cfg_0 = ReadNocCfgReg(noc_regs, NIU_CFG_0);
 
 				niu_cfg_0 |= niu_cfg_0_updates;
+				WRITE_BIT(niu_cfg_0, NIU_CFG_0_TILE_CLK_OFF,
+					GetTileClkDisable(px, py));
 				WriteNocCfgReg(noc_regs, NIU_CFG_0, niu_cfg_0);
 
 				uint32_t router_cfg_0 = ReadNocCfgReg(noc_regs, ROUTER_CFG(0));
@@ -180,7 +194,9 @@ void NocInit(void)
 		}
 	}
 
-	ProgramBroadcastExclusion(0);
+	uint16_t bad_tensix_cols = BIT_MASK(14) & ~tile_enable.tensix_col_enabled;
+
+	ProgramBroadcastExclusion(bad_tensix_cols);
 }
 
 #define PRE_TRANSLATION_SIZE 32
@@ -498,8 +514,6 @@ static struct NocTranslation ComputeNocTranslation(unsigned int pcie_instance,
 void InitNocTranslation(unsigned int pcie_instance, uint16_t bad_tensix_cols, uint8_t bad_gddr,
 			uint16_t skip_eth)
 {
-	ProgramBroadcastExclusion(bad_tensix_cols);
-
 	struct NocTranslation noc0 =
 		ComputeNocTranslation(pcie_instance, bad_tensix_cols, bad_gddr, skip_eth);
 	ProgramNocTranslation(&noc0, 0);
@@ -593,6 +607,8 @@ static uint8_t DebugNocTranslationHandler(uint32_t msg_code, const struct reques
 	uint16_t skip_eth = FIELD_GET(GENMASK(23, 8), req->data[1]);
 
 	ClearNocTranslation();
+
+	ProgramBroadcastExclusion(bad_tensix_cols);
 
 	if (enable_translation) {
 		if (!pcie_instance_override) {
