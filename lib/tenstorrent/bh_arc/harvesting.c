@@ -152,7 +152,7 @@ static void HarvestingSLTFuses(void)
 	/* Workaround for SYS-1065 */
 	/* Ignore GDDR3 failures for fuse map <= v2 */
 	if (slt_fuse_map_version <= 2) {
-		harvested_gddr &= BIT(3);
+		harvested_gddr &= ~BIT(3);
 	}
 
 	tile_enable.gddr_enabled &= ~harvested_gddr;
