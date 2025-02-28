@@ -7,12 +7,12 @@ index 8dd4fc5db12..3060b3f1a54 100755
          # restoring
          self.fmtd_failures = []
 +        self.path_hint = "<git-top>"
- 
+
      def _result(self, res, text):
          res.text = text.rstrip()
 @@ -225,7 +226,7 @@ class CheckPatch(ComplianceTest):
              cmd = [checkpatch]
- 
+
          cmd.extend(['--mailback', '--no-tree', '-'])
 -        diff = subprocess.Popen(('git', 'diff', '--no-ext-diff', COMMIT_RANGE),
 +        diff = subprocess.Popen(('git', 'diff', '--no-ext-diff', COMMIT_RANGE, '--', ':!*.diff', ':!*.patch'),
@@ -24,7 +24,7 @@ index 8dd4fc5db12..3060b3f1a54 100755
      name = "BoardYml"
      doc = "Check the board.yml file format"
 -    path_hint = "<zephyr-base>"
- 
+
      def check_board_file(self, file, vendor_prefixes):
          """Validate a single board file."""
 @@ -303,7 +303,6 @@ class ClangFormatCheck(ComplianceTest):
@@ -32,7 +32,7 @@ index 8dd4fc5db12..3060b3f1a54 100755
      name = "ClangFormat"
      doc = "See https://docs.zephyrproject.org/latest/contribute/guidelines.html#clang-format for more details."
 -    path_hint = "<git-top>"
- 
+
      def run(self):
          exe = f"clang-format-diff.{'exe' if platform.system() == 'Windows' else 'py'}"
 @@ -345,7 +344,6 @@ class DevicetreeBindingsCheck(ComplianceTest):
@@ -40,7 +40,7 @@ index 8dd4fc5db12..3060b3f1a54 100755
      name = "DevicetreeBindings"
      doc = "See https://docs.zephyrproject.org/latest/build/dts/bindings.html for more details."
 -    path_hint = "<zephyr-base>"
- 
+
      def run(self, full=True):
          dts_bindings = self.parse_dt_bindings()
 @@ -382,7 +380,6 @@ class KconfigCheck(ComplianceTest):
@@ -48,7 +48,7 @@ index 8dd4fc5db12..3060b3f1a54 100755
      name = "Kconfig"
      doc = "See https://docs.zephyrproject.org/latest/build/kconfig/tips.html for more details."
 -    path_hint = "<zephyr-base>"
- 
+
      # Top-level Kconfig file. The path can be relative to srctree (ZEPHYR_BASE).
      FILENAME = "Kconfig"
 @@ -991,6 +988,7 @@ flagged.
@@ -59,6 +59,11 @@ index 8dd4fc5db12..3060b3f1a54 100755
          "MCUBOOT_LOG_LEVEL_INF",
          "MCUBOOT_LOG_LEVEL_WRN",        # Used in example adjusting MCUboot
                                          # config,
+@@ -1181,3 +1179,4 @@ class SysbuildKconfigCheck(KconfigCheck):
++        "BMC_BOARD",
+         "FOO",
+         "SECOND_SAMPLE", # Used in sysbuild documentation
+         "SUIT_ENVELOPE", # Used by nRF runners to program provisioning data
 @@ -1132,7 +1130,6 @@ class Nits(ComplianceTest):
      """
      name = "Nits"
