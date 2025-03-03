@@ -29,7 +29,7 @@ void ReadTelemetryInternal(int64_t max_staleness, TelemetryInternalData *data)
 
 	if (k_uptime_delta(&reftime) >= max_staleness) {
 		/* Get all dynamically updated values */
-		internal_data.vcore_voltage = GetVoltage(P0V8_VCORE_ADDR);
+		internal_data.vcore_voltage = get_vcore();
 		AVSReadCurrent(AVS_VCORE_RAIL, &internal_data.vcore_current);
 		internal_data.vcore_power =
 			internal_data.vcore_current * internal_data.vcore_voltage * 0.001f;

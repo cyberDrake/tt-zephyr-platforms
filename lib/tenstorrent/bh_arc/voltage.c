@@ -22,7 +22,7 @@ VoltageArbiter voltage_arbiter;
 void VoltageChange(void)
 {
 	if (voltage_arbiter.targ_voltage != voltage_arbiter.curr_voltage) {
-		SetVoltage(P0V8_VCORE_ADDR, voltage_arbiter.targ_voltage);
+		set_vcore(voltage_arbiter.targ_voltage);
 		voltage_arbiter.curr_voltage = voltage_arbiter.targ_voltage;
 	}
 }
@@ -64,13 +64,13 @@ int InitVoltagePPM(void)
 	for (VoltageRequestor i = 0; i < VoltageReqCount; i++) {
 		voltage_arbiter.req_voltage[i] = voltage_arbiter.vdd_min;
 	}
-	SetVoltage(P0V8_VCORE_ADDR, VDD_BOOT);
+	set_vcore(VDD_BOOT);
 	voltage_arbiter.curr_voltage = VDD_BOOT;
 	voltage_arbiter.targ_voltage = voltage_arbiter.curr_voltage;
 
 	/* Change VCOREM to 0.85 V to enforce the rule VCOREM - 300 mV <= VCORE <= VCOREM + 100mV */
 	/* Thus allowing VCORE in the range of 0.55 V to 0.95 V */
-	SetVoltage(P0V8_VCOREM_ADDR, 850);
+	set_vcorem(850);
 
 	return 0;
 }
@@ -90,7 +90,7 @@ uint8_t ForceVdd(uint32_t voltage)
 			voltage = VDD_BOOT;
 		}
 
-		SetVoltage(P0V8_VCORE_ADDR, voltage);
+		set_vcore(voltage);
 	}
 	return 0;
 }

@@ -8,17 +8,8 @@
 
 #include <stdint.h>
 
-#define P0V8_VCORE_ADDR           0x64
-#define P0V8_VCOREM_ADDR          0x65
-#define P0V85_GDDR_VDDA_WEST_ADDR 0x50
-#define P0V85_GDDR_VDDA_EAST_ADDR 0x51
-#define P0V85_GDDR_VDDR_WEST_ADDR 0x54
-#define P0V85_GDDR_VDDR_EAST_ADDR 0x55
-#define P1V35_GDDRIO_WEST         0x52
-#define P1V35_GDDRIO_EAST         0x53
-#define P1V2_SERDES_VDDH          0x58
-#define P0V75_SERDES_VDD          0x56
-#define P0V75_SERDES_VDDL         0x57
+#define P0V8_VCORE_ADDR  0x64
+#define P0V8_VCOREM_ADDR 0x65
 
 typedef enum {
 	VoutCommand = 0,
@@ -27,8 +18,10 @@ typedef enum {
 	AVSVoutCommand = 3,
 } VoltageCmdSource;
 
-float GetVoltage(uint32_t slave_addr); /* returns voltage in mV. */
-void SetVoltage(uint32_t slave_addr, float voltage_in_mv);
+float get_vcore(void);  /* returns voltage in mV. */
+float get_vcorem(void); /* returns voltage in mV. */
+void set_vcore(float voltage_in_mv);
+void set_vcorem(float voltage_in_mv);
 float GetVcoreCurrent(void);
 float GetVcorePower(void);
 void SwitchVoutControl(VoltageCmdSource source);
