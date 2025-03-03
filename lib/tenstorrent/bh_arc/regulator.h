@@ -8,8 +8,7 @@
 
 #include <stdint.h>
 
-#define P0V8_VCORE_ADDR  0x64
-#define P0V8_VCOREM_ADDR 0x65
+#include "read_only_table.h"
 
 typedef enum {
 	VoutCommand = 0,
@@ -18,10 +17,11 @@ typedef enum {
 	AVSVoutCommand = 3,
 } VoltageCmdSource;
 
-float get_vcore(void);  /* returns voltage in mV. */
-float get_vcorem(void); /* returns voltage in mV. */
-void set_vcore(float voltage_in_mv);
-void set_vcorem(float voltage_in_mv);
+uint32_t get_vcore(void);  /* returns voltage in mV. */
+uint32_t get_vcorem(void); /* returns voltage in mV. */
+void set_vcore(uint32_t voltage_in_mv);
+void set_vcorem(uint32_t voltage_in_mv);
+void set_gddr_vddr(PcbType board_type, uint32_t voltage_in_mv);
 float GetVcoreCurrent(void);
 float GetVcorePower(void);
 void SwitchVoutControl(VoltageCmdSource source);

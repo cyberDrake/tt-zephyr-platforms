@@ -13,9 +13,12 @@
 #include <tenstorrent/msg_type.h>
 #include <tenstorrent/msgqueue.h>
 
-#include "timer.h"
-#include "dw_apb_i2c.h"
 #include "avs.h"
+#include "dw_apb_i2c.h"
+#include "timer.h"
+
+#define LINEAR_FORMAT_CONSTANT (1 << 9)
+#define SCALE_LOOP             0.335f
 
 /* I2C constants */
 #define PMBUS_MST_ID 1
@@ -34,14 +37,30 @@
 #define PMBUS_CMD_BYTE_SIZE         1
 #define PMBUS_FLIP_BYTES            0
 
-typedef struct {
-	uint8_t reserved: 1;
-	uint8_t transition_control: 1;
-	uint8_t margin_fault_response: 2;
+/* I2C slave addresses */
+#define GDDR_VDDR_ADDR              0x33
+#define CB_GDDR_VDDR_WEST_ADDR      0x54
+#define CB_GDDR_VDDR_EAST_ADDR      0x55
+#define SCRAPPY_GDDR_VDDR_WEST_ADDR 0x56
+#define SCRAPPY_GDDR_VDDR_EAST_ADDR 0x57
+#define P0V8_VCORE_ADDR             0x64
+#define P0V8_VCOREM_ADDR            0x65
 
+/* VR feedback resistors */
+#define GDDR_VDDR_FB1         0.422
+#define GDDR_VDDR_FB2         1.0
+#define CB_GDDR_VDDR_FB1      1.37
+#define CB_GDDR_VDDR_FB2      4.32
+#define SCRAPPY_GDDR_VDDR_FB1 1.07
+#define SCRAPPY_GDDR_VDDR_FB2 3.48
+
+typedef struct {
+	uint8_t reserved : 1;
+	uint8_t transition_control : 1;
+	uint8_t margin_fault_response : 2;
 	VoltageCmdSource voltage_command_source : 2;
-	uint8_t turn_off_behaviour: 1;
-	uint8_t on_off_state: 1;
+	uint8_t turn_off_behaviour : 1;
+	uint8_t on_off_state : 1;
 } OperationBits;
 
 /* The default value is the regulator default */
@@ -81,8 +100,33 @@ float GetVcorePower(void)
 	return ConvertLinear11ToFloat(pout);
 }
 
+static void set_max20730(uint32_t slave_addr, uint32_t voltage_in_mv, float rfb1, float rfb2)
+{
+	I2CInit(I2CMst, slave_addr, I2CFastMode, PMBUS_MST_ID);
+	float vref = voltage_in_mv / (1 + rfb1 / rfb2);
+	uint16_t vout_cmd = vref * LINEAR_FORMAT_CONSTANT * 0.001f;
+
+	I2CWriteBytes(PMBUS_MST_ID, VOUT_COMMAND, PMBUS_CMD_BYTE_SIZE, (uint8_t *)&vout_cmd,
+		      VOUT_COMMAND_DATA_BYTE_SIZE);
+
+	/* delay to flush i2c transaction and voltage change */
+	WaitUs(250);
+}
+
+static void set_mpm3695(uint32_t slave_addr, uint32_t voltage_in_mv, float rfb1, float rfb2)
+{
+	I2CInit(I2CMst, slave_addr, I2CFastMode, PMBUS_MST_ID);
+	uint16_t vout_cmd = voltage_in_mv * 0.5f / SCALE_LOOP / (1 + rfb1 / rfb2);
+
+	I2CWriteBytes(PMBUS_MST_ID, VOUT_COMMAND, PMBUS_CMD_BYTE_SIZE, (uint8_t *)&vout_cmd,
+		      VOUT_COMMAND_DATA_BYTE_SIZE);
+
+	/* delay to flush i2c transaction and voltage change */
+	WaitUs(250);
+}
+
 /* Set MAX20816 voltage using I2C, MAX20816 is used for Vcore and Vcorem */
-void i2c_set_max20816(uint32_t slave_addr, float voltage_in_mv)
+static void i2c_set_max20816(uint32_t slave_addr, uint32_t voltage_in_mv)
 {
 	I2CInit(I2CMst, slave_addr, I2CFastMode, PMBUS_MST_ID);
 	uint16_t vout_cmd = 2 * voltage_in_mv;
@@ -97,7 +141,7 @@ void i2c_set_max20816(uint32_t slave_addr, float voltage_in_mv)
 }
 
 /* Returns MAX20816 output volage in mV. */
-float i2c_get_max20816(uint32_t slave_addr)
+static float i2c_get_max20816(uint32_t slave_addr)
 {
 	I2CInit(I2CMst, slave_addr, I2CFastMode, PMBUS_MST_ID);
 	uint16_t vout_cmd = 0;
@@ -108,7 +152,7 @@ float i2c_get_max20816(uint32_t slave_addr)
 	return vout_cmd * 0.5f;
 }
 
-void set_vcore(float voltage_in_mv)
+void set_vcore(uint32_t voltage_in_mv)
 {
 	if (vout_cmd_source == AVSVoutCommand) {
 		AVSWriteVoltage(voltage_in_mv, AVS_VCORE_RAIL);
@@ -117,19 +161,37 @@ void set_vcore(float voltage_in_mv)
 	}
 }
 
-float get_vcore(void)
+uint32_t get_vcore(void)
 {
 	return i2c_get_max20816(P0V8_VCORE_ADDR);
 }
 
-void set_vcorem(float voltage_in_mv)
+void set_vcorem(uint32_t voltage_in_mv)
 {
 	i2c_set_max20816(P0V8_VCOREM_ADDR, voltage_in_mv);
 }
 
-float get_vcorem(void)
+uint32_t get_vcorem(void)
 {
 	return i2c_get_max20816(P0V8_VCOREM_ADDR);
+}
+
+/* Set GDDR VDDR voltage for corner parts before DRAM training */
+void set_gddr_vddr(PcbType board_type, uint32_t voltage_in_mv)
+{
+	if (board_type == PcbTypeOrion) {
+		set_max20730(CB_GDDR_VDDR_WEST_ADDR, voltage_in_mv, CB_GDDR_VDDR_FB1,
+			     CB_GDDR_VDDR_FB2);
+		set_max20730(CB_GDDR_VDDR_EAST_ADDR, voltage_in_mv, CB_GDDR_VDDR_FB1,
+			     CB_GDDR_VDDR_FB2);
+	} else if (board_type == PcbTypeP100) {
+		set_max20730(SCRAPPY_GDDR_VDDR_WEST_ADDR, voltage_in_mv, SCRAPPY_GDDR_VDDR_FB1,
+			     SCRAPPY_GDDR_VDDR_FB2);
+		set_max20730(SCRAPPY_GDDR_VDDR_EAST_ADDR, voltage_in_mv, SCRAPPY_GDDR_VDDR_FB1,
+			     SCRAPPY_GDDR_VDDR_FB2);
+	} else {
+		set_mpm3695(GDDR_VDDR_ADDR, voltage_in_mv, GDDR_VDDR_FB1, GDDR_VDDR_FB2);
+	}
 }
 
 void SwitchVoutControl(VoltageCmdSource source)
@@ -191,19 +253,18 @@ static uint8_t set_voltage_handler(uint32_t msg_code, const struct request *requ
 				   struct response *response)
 {
 	uint32_t slave_addr = request->data[1];
-	float voltage_in_mv = request->data[2];
+	uint32_t voltage_in_mv = request->data[2];
 
-	if (slave_addr != P0V8_VCORE_ADDR && slave_addr != P0V8_VCOREM_ADDR) {
+	switch (slave_addr) {
+	case P0V8_VCORE_ADDR:
+		set_vcore(voltage_in_mv);
+		return 0;
+	case P0V8_VCOREM_ADDR:
+		set_vcorem(voltage_in_mv);
+		return 0;
+	default:
 		return 1;
 	}
-
-	if (slave_addr == P0V8_VCORE_ADDR) {
-		set_vcore(voltage_in_mv);
-	} else if (slave_addr == P0V8_VCOREM_ADDR) {
-		set_vcorem(voltage_in_mv);
-	}
-
-	return 0;
 }
 
 static uint8_t get_voltage_handler(uint32_t msg_code, const struct request *request,
@@ -211,17 +272,16 @@ static uint8_t get_voltage_handler(uint32_t msg_code, const struct request *requ
 {
 	uint32_t slave_addr = request->data[1];
 
-	if (slave_addr != P0V8_VCORE_ADDR && slave_addr != P0V8_VCOREM_ADDR) {
+	switch (slave_addr) {
+	case P0V8_VCORE_ADDR:
+		response->data[1] = get_vcore();
+		return 0;
+	case P0V8_VCOREM_ADDR:
+		response->data[1] = get_vcorem();
+		return 0;
+	default:
 		return 1;
 	}
-
-	if (slave_addr == P0V8_VCORE_ADDR) {
-		response->data[1] = get_vcore();
-	} else if (slave_addr == P0V8_VCOREM_ADDR) {
-		response->data[1] = get_vcorem();
-	}
-
-	return 0;
 }
 
 static uint8_t switch_vout_control_handler(uint32_t msg_code, const struct request *request,
