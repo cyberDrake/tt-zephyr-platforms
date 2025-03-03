@@ -149,6 +149,21 @@ static bool GetTileClkDisable(uint8_t px, uint8_t py)
 		uint8_t tensix_x = px - 1;
 
 		return !IS_BIT_SET(tile_enable.tensix_col_enabled, tensix_x);
+	} else if (px >= 1 && px <= 14 && py == 1) {
+		/* ETH tiles */
+		uint8_t eth_inst = px - 1;
+
+		return !IS_BIT_SET(tile_enable.eth_enabled, eth_inst);
+	} else if (px == 0) {
+		/* Leftmost column, GDDR 0-3 */
+		uint8_t gddr_inst = py / 3;
+
+		return !IS_BIT_SET(tile_enable.gddr_enabled, gddr_inst);
+	} else if (px == 16) {
+		/* Rightmost column, GDDR 4-7 */
+		uint8_t gddr_inst = 4 + py / 3;
+
+		return !IS_BIT_SET(tile_enable.gddr_enabled, gddr_inst);
 	}
 	return false;
 }

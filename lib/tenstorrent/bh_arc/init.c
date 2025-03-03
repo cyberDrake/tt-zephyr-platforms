@@ -52,25 +52,31 @@ static void AssertSoftResets(void)
 	NOC2AXITensixBroadcastTlbSetup(kNocRing, kNocTlb, kSoftReset0Addr, kNoc2AxiOrderingStrict);
 	NOC2AXIWrite32(kNocRing, kNocTlb, kSoftReset0Addr, kAllRiscSoftReset);
 
-	/* TODO: Handle harvesting for ETH and GDDR (don't touch harvested tiles) */
-	/* Broadcast to SOFT_RESET_0 of ETH */
+	/* Write to SOFT_RESET_0 of ETH */
 	for (uint8_t eth_inst = 0; eth_inst < 14; eth_inst++) {
 		uint8_t x, y;
 
-		GetEthNocCoords(eth_inst, kNocRing, &x, &y);
-		NOC2AXITlbSetup(kNocRing, kNocTlb, x, y, kSoftReset0Addr);
-		NOC2AXIWrite32(kNocRing, kNocTlb, kSoftReset0Addr, kAllRiscSoftReset);
-	}
-
-	/* Broadcast to SOFT_RESET_0 of GDDR */
-	/* Note that there are 3 NOC nodes for each GDDR instance */
-	for (uint8_t gddr_inst = 0; gddr_inst < 8; gddr_inst++) {
-		for (uint8_t noc_node_inst = 0; noc_node_inst < 3; noc_node_inst++) {
-			uint8_t x, y;
-
-			GetGddrNocCoords(gddr_inst, noc_node_inst, kNocRing, &x, &y);
+		/* Skip harvested ETH tiles */
+		if (tile_enable.eth_enabled & BIT(eth_inst)) {
+			GetEthNocCoords(eth_inst, kNocRing, &x, &y);
 			NOC2AXITlbSetup(kNocRing, kNocTlb, x, y, kSoftReset0Addr);
 			NOC2AXIWrite32(kNocRing, kNocTlb, kSoftReset0Addr, kAllRiscSoftReset);
+		}
+	}
+
+	/* Write to SOFT_RESET_0 of GDDR */
+	/* Note that there are 3 NOC nodes for each GDDR instance */
+	for (uint8_t gddr_inst = 0; gddr_inst < 8; gddr_inst++) {
+		/* Skip harvested GDDR tiles */
+		if (tile_enable.gddr_enabled & BIT(gddr_inst)) {
+			for (uint8_t noc_node_inst = 0; noc_node_inst < 3; noc_node_inst++) {
+				uint8_t x, y;
+
+				GetGddrNocCoords(gddr_inst, noc_node_inst, kNocRing, &x, &y);
+				NOC2AXITlbSetup(kNocRing, kNocTlb, x, y, kSoftReset0Addr);
+				NOC2AXIWrite32(kNocRing, kNocTlb, kSoftReset0Addr,
+					kAllRiscSoftReset);
+			}
 		}
 	}
 }
@@ -79,8 +85,6 @@ static void AssertSoftResets(void)
 /* L2CPU is skipped due to JIRA issues BH-25 and BH-28 */
 static void DeassertRiscvResets(void)
 {
-	/* TODO: Handle harvesting (keep RISC-V cores of harvested tiles in reset) */
-
 	for (uint32_t i = 0; i < 8; i++) {
 		WriteReg(RESET_UNIT_TENSIX_RISC_RESET_0_REG_ADDR + i * 4, 0xffffffff);
 	}
@@ -116,10 +120,10 @@ static void InitMrisc(void)
 		/* TODO: Handle this more gracefully */
 		return;
 	}
-	uint32_t dram_mask = 0xff; /* bit mask */
+	uint32_t dram_mask = tile_enable.gddr_enabled; /* bit mask */
 
 	if (get_fw_table()->has_dram_table && get_fw_table()->dram_table.dram_mask_en) {
-		dram_mask = get_fw_table()->dram_table.dram_mask;
+		dram_mask &= get_fw_table()->dram_table.dram_mask;
 	}
 	for (uint8_t gddr_inst = 0; gddr_inst < 8; gddr_inst++) {
 		if ((dram_mask >> gddr_inst) & 1) {
@@ -217,6 +221,11 @@ static void EthInit(void)
 {
 	uint32_t ring = 0;
 
+	/* Early exit if no ETH tiles enabled */
+	if (tile_enable.eth_enabled == 0) {
+		return;
+	}
+
 	/* Load fw */
 	static const char kEthFwTag[TT_BOOT_FS_IMAGE_TAG_SIZE] = "ethfw";
 	size_t fw_size = 0;
@@ -229,7 +238,9 @@ static void EthInit(void)
 	}
 
 	for (uint8_t eth_inst = 0; eth_inst < MAX_ETH_INSTANCES; eth_inst++) {
-		LoadEthFw(eth_inst, ring, large_sram_buffer, fw_size);
+		if (tile_enable.eth_enabled & BIT(eth_inst)) {
+			LoadEthFw(eth_inst, ring, large_sram_buffer, fw_size);
+		}
 	}
 
 	/* Load param table */
@@ -243,8 +254,10 @@ static void EthInit(void)
 	}
 
 	for (uint8_t eth_inst = 0; eth_inst < MAX_ETH_INSTANCES; eth_inst++) {
-		LoadEthFwCfg(eth_inst, ring, large_sram_buffer, fw_size);
-		ReleaseEthReset(eth_inst, ring);
+		if (tile_enable.eth_enabled & BIT(eth_inst)) {
+			LoadEthFwCfg(eth_inst, ring, large_sram_buffer, fw_size);
+			ReleaseEthReset(eth_inst, ring);
+		}
 	}
 }
 
