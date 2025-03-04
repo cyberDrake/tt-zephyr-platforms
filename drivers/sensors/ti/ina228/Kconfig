@@ -12,7 +12,7 @@ config INA228
 	bool "INA228 Power/Energy/Charge Monitor"
 	default y
 	depends on DT_HAS_TI_INA228_ENABLED
-	select I2C
+	depends on I2C
 	help
 	  Enable driver for INA228 Power/Energy/Charge Monitor
 

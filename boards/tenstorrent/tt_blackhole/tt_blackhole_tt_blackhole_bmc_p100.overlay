@@ -15,3 +15,7 @@
 &flash1 {
 	jedec-id = [2c 5b 1a];
 };
+
+&ina228 {
+	status = "disabled";
+};
