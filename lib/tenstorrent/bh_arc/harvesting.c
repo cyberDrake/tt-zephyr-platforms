@@ -175,19 +175,21 @@ void CalculateHarvesting(void)
 	tile_enable.l2cpu_enabled = BIT_MASK(4);
 	tile_enable.pcie_enabled = BIT_MASK(2);
 
-	if (get_fw_table()->feature_enable.harvesting_en && FusesValid()) {
-		HarvestingATEFuses();
-		HarvestingSLTFuses();
-	}
+	if (get_fw_table()->feature_enable.harvesting_en) {
+		if (FusesValid()) {
+			HarvestingATEFuses();
+			HarvestingSLTFuses();
+		}
 
-	/* Eth handling */
-	/* Only enable 2 of 3 in eth {4,5,6} */
-	if (FIELD_GET(GENMASK(6, 4), tile_enable.eth_enabled) == BIT_MASK(3)) {
-		tile_enable.eth_enabled &= ~BIT(6);
-	}
-	/* Only enable 2 of 3 in eth {7,8,9} */
-	if (FIELD_GET(GENMASK(9, 7), tile_enable.eth_enabled) == BIT_MASK(3)) {
-		tile_enable.eth_enabled &= ~BIT(9);
+		/* Eth handling */
+		/* Only enable 2 of 3 in eth {4,5,6} */
+		if (FIELD_GET(GENMASK(6, 4), tile_enable.eth_enabled) == BIT_MASK(3)) {
+			tile_enable.eth_enabled &= ~BIT(6);
+		}
+		/* Only enable 2 of 3 in eth {7,8,9} */
+		if (FIELD_GET(GENMASK(9, 7), tile_enable.eth_enabled) == BIT_MASK(3)) {
+			tile_enable.eth_enabled &= ~BIT(9);
+		}
 	}
 
 	/* PCIe and SERDES handling */
