@@ -190,6 +190,33 @@ void CalculateHarvesting(void)
 		if (FIELD_GET(GENMASK(9, 7), tile_enable.eth_enabled) == BIT_MASK(3)) {
 			tile_enable.eth_enabled &= ~BIT(9);
 		}
+
+		/* Soft harvesting for Tensix, ETH, GDDR, Tensix based on product spec */
+		uint8_t disabled_tensix_cols = 14 - POPCOUNT(tile_enable.tensix_col_enabled);
+
+		if (disabled_tensix_cols <
+			get_fw_table()->product_spec_harvesting.tensix_col_disable_count) {
+			uint8_t tensix_soft_disable =
+				get_fw_table()->product_spec_harvesting.tensix_col_disable_count -
+				disabled_tensix_cols;
+
+			for (int i = 13; i >= 0 && tensix_soft_disable > 0; i--) {
+				if (IS_BIT_SET(tile_enable.tensix_col_enabled, i)) {
+					WRITE_BIT(tile_enable.tensix_col_enabled, i, 0);
+					tensix_soft_disable--;
+				}
+			}
+		}
+
+		if (get_fw_table()->product_spec_harvesting.eth_disabled) {
+			tile_enable.eth_enabled = 0;
+		}
+
+		if (8 - get_fw_table()->product_spec_harvesting.dram_disable_count >
+			POPCOUNT(tile_enable.gddr_enabled)) {
+			/* Only handle soft harvesting of one GDDR. Always choose GDDR3. */
+			WRITE_BIT(tile_enable.gddr_enabled, 3, 0);
+		}
 	}
 
 	/* PCIe and SERDES handling */

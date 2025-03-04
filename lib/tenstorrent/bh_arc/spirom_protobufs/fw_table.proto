@@ -17,6 +17,7 @@ message FwTable {
   PciPropertyTable pci0_property_table = 7;
   PciPropertyTable pci1_property_table = 8;
   EthPropertyTable eth_property_table = 9;
+  ProductSpecHarvesting product_spec_harvesting = 10;
 
   message ChipLimits {
     uint32 asic_fmax = 1;
@@ -80,5 +81,11 @@ message FwTable {
   message EthPropertyTable {
     uint32 eth_disable_mask = 1;
     bool eth_disable_mask_en = 2;
+  }
+
+  message ProductSpecHarvesting {
+    uint32 dram_disable_count = 1;
+    bool eth_disabled = 2;
+    uint32 tensix_col_disable_count = 3;
   }
 }
