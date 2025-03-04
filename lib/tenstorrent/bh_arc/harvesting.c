@@ -189,9 +189,6 @@ void CalculateHarvesting(void)
 	if (FIELD_GET(GENMASK(9, 7), tile_enable.eth_enabled) == BIT_MASK(3)) {
 		tile_enable.eth_enabled &= ~BIT(9);
 	}
-	if (get_fw_table()->eth_property_table.eth_disable_mask_en) {
-		tile_enable.eth_enabled &= ~(get_fw_table()->eth_property_table.eth_disable_mask);
-	}
 
 	/* PCIe and SERDES handling */
 	tile_enable.pcie_usage[0] = get_fw_table()->pci0_property_table.pcie_mode;
