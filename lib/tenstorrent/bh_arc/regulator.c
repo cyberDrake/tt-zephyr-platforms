@@ -24,21 +24,25 @@
 #define PMBUS_MST_ID 1
 
 /* PMBus Spec constants */
-#define VOUT_COMMAND                0x21
-#define VOUT_COMMAND_DATA_BYTE_SIZE 2
-#define READ_VOUT                   0x8B
-#define READ_VOUT_DATA_BYTE_SIZE    2
-#define READ_IOUT                   0x8C
-#define READ_IOUT_DATA_BYTE_SIZE    2
-#define READ_POUT                   0x96
-#define READ_POUT_DATA_BYTE_SIZE    2
-#define OPERATION                   0x1
-#define OPERATION_DATA_BYTE_SIZE    1
-#define PMBUS_CMD_BYTE_SIZE         1
-#define PMBUS_FLIP_BYTES            0
+#define VOUT_COMMAND                   0x21
+#define VOUT_COMMAND_DATA_BYTE_SIZE    2
+#define VOUT_SCALE_LOOP                0x29
+#define VOUT_SCALE_LOOP_DATA_BYTE_SIZE 2
+#define READ_VOUT                      0x8B
+#define READ_VOUT_DATA_BYTE_SIZE       2
+#define READ_IOUT                      0x8C
+#define READ_IOUT_DATA_BYTE_SIZE       2
+#define READ_POUT                      0x96
+#define READ_POUT_DATA_BYTE_SIZE       2
+#define OPERATION                      0x1
+#define OPERATION_DATA_BYTE_SIZE       1
+#define PMBUS_CMD_BYTE_SIZE            1
+#define PMBUS_FLIP_BYTES               0
 
 /* I2C slave addresses */
 #define GDDR_VDDR_ADDR              0x33
+#define GDDRIO_WEST_ADDR            0x36
+#define GDDRIO_EAST_ADDR            0x37
 #define CB_GDDR_VDDR_WEST_ADDR      0x54
 #define CB_GDDR_VDDR_EAST_ADDR      0x55
 #define SCRAPPY_GDDR_VDDR_WEST_ADDR 0x56
@@ -212,7 +216,7 @@ void SwitchVoutControl(VoltageCmdSource source)
 	vout_cmd_source = source;
 }
 
-void RegulatorInit(void)
+void RegulatorInit(PcbType board_type)
 {
 	/* VCORE */
 	I2CInit(I2CMst, P0V8_VCORE_ADDR, I2CFastMode, PMBUS_MST_ID);
@@ -247,6 +251,21 @@ void RegulatorInit(void)
 	I2CWriteBytes(PMBUS_MST_ID, 0x38, PMBUS_CMD_BYTE_SIZE, data2_38, sizeof(data2_38));
 	I2CWriteBytes(PMBUS_MST_ID, 0x39, PMBUS_CMD_BYTE_SIZE, data2_39, sizeof(data2_39));
 	I2CWriteBytes(PMBUS_MST_ID, 0xe7, PMBUS_CMD_BYTE_SIZE, data2_e7, sizeof(data2_e7));
+
+	/* GDDRIO */
+	if (board_type == PcbTypeUBB) {
+		static const uint8_t gddrio_addr[] = {GDDRIO_WEST_ADDR, GDDRIO_EAST_ADDR};
+		uint16_t vout_scale_loop = 444;
+		uint16_t vout_cmd = 675;
+
+		ARRAY_FOR_EACH_PTR(gddrio_addr, addr_ptr) {
+			I2CInit(I2CMst, *addr_ptr, I2CFastMode, PMBUS_MST_ID);
+			I2CWriteBytes(PMBUS_MST_ID, VOUT_SCALE_LOOP, PMBUS_CMD_BYTE_SIZE,
+				      (uint8_t *)&vout_scale_loop, VOUT_SCALE_LOOP_DATA_BYTE_SIZE);
+			I2CWriteBytes(PMBUS_MST_ID, VOUT_COMMAND, PMBUS_CMD_BYTE_SIZE,
+				      (uint8_t *)&vout_cmd, VOUT_COMMAND_DATA_BYTE_SIZE);
+		}
+	}
 }
 
 static uint8_t set_voltage_handler(uint32_t msg_code, const struct request *request,
