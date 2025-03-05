@@ -79,17 +79,13 @@ set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
 )
 
 if(BOARD STREQUAL "tt_blackhole")
-  # Map board revision names to folder names for spirom config data
-  if(BOARD_REVISION STREQUAL p100)
-    set(PROD_NAME "P100")
-  elseif(BOARD_REVISION STREQUAL p150)
-    set(PROD_NAME "P150")
-  else()
-    message(FATAL_ERROR "Unknown board revision for ${BOARD}: ${BOARD_REVISON}")
-  endif()
+  # Map board revision names to folder name
+  string(TOUPPER ${BOARD_REVISION} PROD_NAME)
 elseif(BOARD STREQUAL "native_sim")
   # Use P100 data files to stand in
   set(PROD_NAME "P100")
+else()
+  message(FATAL_ERROR "No support for board ${BOARD}")
 endif()
 
 message(STATUS "Generating rom configuration binary files for ${PROD_NAME}")
