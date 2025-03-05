@@ -28,6 +28,9 @@ west config manifest.group-filter -- +optional
 # Fetch Zephyr modules
 west update
 
+# Verify binary blobs
+west blobs fetch
+
 # Apply local patches
 west patch apply
 
@@ -44,11 +47,12 @@ source zephyr-env.sh
 BOARD=tt_blackhole/tt_blackhole/bmc
 BOARD_SANITIZED=tt_blackhole_tt_blackhole_bmc
 
+# Build BMC firmware
 west build --sysbuild -p -S rtt-console -b $BOARD ../$MODULE.git/app/bmc
-# Note: if debugging with a JLink, add `-r jlink` to the `west flash` and
-# `west rtt` invocations. The default debug configuration uses an st-link
+
 # Flash mcuboot and the app
 west flash
+
 # Open RTT viewer
 west rtt
 ```
@@ -68,9 +72,8 @@ I: Jumping to the first image slot
 *** Booting Zephyr OS build v4.0.0-1487-g595d81a941c5 ***
 ```
 
-TODO: enable app debug logs
-
 **Build and run tests on hardware with `twister`**
+
 ```shell
 twister -i -p $BOARD --device-testing --west-flash \
   --device-serial-pty rtt --west-runner openocd \
@@ -91,6 +94,7 @@ The file `fw.hex` is a concatenation of the mcuboot `zephyr.bin` and the `app/sm
 ```
 
 **Reset the BMC via OpenOCD (I.e. Soft-Reset the Card)**
+
 ```shell
 ./scripts/bmc-reset.py
 ./scripts/rescan-pcie.sh
@@ -99,29 +103,26 @@ The file `fw.hex` is a concatenation of the mcuboot `zephyr.bin` and the `app/sm
 ### Build, Flash, and Debug SMC FW
 
 **Build, flash, and attach to the target with `west`**
+
 ```shell
 # Set up a convenience variable for SMC FW
 BOARD=tt_blackhole/tt_blackhole/smc
 
-# Get the serial number of the jtag adapter
-# lsusb -v ...
-# SERIAL="..."
-
+# Build SMC firmware
 west build -p -S rtt-console -b $BOARD ../$MODULE.git/app/smc
+
 # Flash mcuboot and the app
-west flash --cmd-pre-init "adapter serial $SERIAL"
+west flash
+
 # Attach a debugger
-west attach --cmd-pre-init "adapter serial $SERIAL"
+west attach
 ```
-
-TODO: enable app debug logs
-
-TODO: run HW-in-the-loop-tests with `twister`
 
 ## Enable Git Hooks for Development
 
 To add git hooks to check your commits and branch prior to pushing to insure
 they do not have any formatting or compliance issues, you can run
+
 ```shell
 tt-zephyr-platforms/scripts/add-git-hooks.sh
 ```
