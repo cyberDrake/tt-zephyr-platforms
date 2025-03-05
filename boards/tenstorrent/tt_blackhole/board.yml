@@ -8,6 +8,6 @@ boards:
     revisions:
     - name: "p100"
     - name: "p100a"
-    - name: "p150"
+    - name: "p150a"
   socs:
   - name: tt_blackhole
