@@ -20,6 +20,10 @@ tests:
 boards:
   - boards
 
+# Runner for tt-flash
+runners:
+  - file: scripts/tt_flash_runner.py
+
 blobs:
   - path: tt_blackhole_erisc.bin
     sha256: 641b27703ad39b55277b53015acbd7981dc1ccfccc1a77b51d460688bf8e8468

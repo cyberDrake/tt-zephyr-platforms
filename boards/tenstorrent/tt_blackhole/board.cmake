@@ -24,3 +24,6 @@ endif()
 if(CONFIG_ARM)
   include(${ZEPHYR_BASE}/boards/common/stm32cubeprogrammer.board.cmake)
 endif()
+
+board_set_flasher_ifnset(tt_flash)
+board_finalize_runner_args(tt_flash)
