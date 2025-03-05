@@ -24,7 +24,7 @@ index f6573f5e1bd..03ca6a8f8c9 100644
  
  /*
   * storage space for the interrupt stack of fast_irq
-@@ -187,11 +190,40 @@ int arch_irq_is_enabled(unsigned int irq)
+@@ -187,11 +190,46 @@ int arch_irq_is_enabled(unsigned int irq)
  #else
  void arch_irq_enable(unsigned int irq)
  {
@@ -32,11 +32,14 @@ index f6573f5e1bd..03ca6a8f8c9 100644
 +	unsigned int level = irq_get_level(irq);
 +	const struct device *dev;
 +
++#ifdef CONFIG_3RD_LEVEL_INTERRUPTS
 +	if (level == 3) {
 +		dev = z_get_sw_isr_device_from_irq(irq);
 +		irq_enable_next_level(dev, irq_from_level_3(irq));
 +		return;
-+	} else if (level == 2) {
++} else
++#endif
++	if (level == 2) {
 +		dev = z_get_sw_isr_device_from_irq(irq);
 +		irq_enable_next_level(dev, irq_from_level_2(irq));
 +		return;
@@ -51,11 +54,14 @@ index f6573f5e1bd..03ca6a8f8c9 100644
 +	unsigned int level = irq_get_level(irq);
 +	const struct device *dev;
 +
++#ifdef CONFIG_3RD_LEVEL_INTERRUPTS
 +	if (level == 3) {
 +		dev = z_get_sw_isr_device_from_irq(irq);
 +		irq_disable_next_level(dev, irq_from_level_3(irq));
 +		return;
-+	} else if (level == 2) {
++} else
++#endif
++	if (level == 2) {
 +		dev = z_get_sw_isr_device_from_irq(irq);
 +		irq_disable_next_level(dev, irq_from_level_2(irq));
 +		return;

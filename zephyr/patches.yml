@@ -35,7 +35,7 @@ patches:
     comments: |
       Fix upstream check_compliance.py to be usable by other modules.
   - path: zephyr/arc-multilvl-int.patch
-    sha256sum: d217ac7819d39f9266b4b77e023e2aa61cac02e5f86c49e9141650bb826dcf24
+    sha256sum: fe33bdd040c7f89b848d17193aca3777e1b2c2d71d21f909aa202fb68bf024da
     module: zephyr
     author: Aaron Fong
     email: afong@tenstorrent.com
