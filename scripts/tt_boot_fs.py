@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright (c) 2025 Tenstorrent AI ULC
 # SPDX-License-Identifier: Apache-2.0
 
@@ -851,15 +853,19 @@ def parse_args():
         "output_bundle", metavar="BUNDLE", help="bundle file name", type=Path
     )
     bundle_parser.set_defaults(func=invoke_fwbundle)
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if not hasattr(args, "func"):
+        print("No command specified")
+        parser.print_help()
+        sys.exit(os.EX_USAGE)
+
+    return args
 
 
 def main() -> int:
     args = parse_args()
-    if hasattr(args, "func"):
-        return args.func(args)
-    print("Error, a command must be supplied (try passing --help)")
-    return os.EX_NOINPUT
+    return args.func(args)
 
 
 if __name__ == "__main__":
