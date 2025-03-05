@@ -60,7 +60,7 @@ def rescan_pcie():
         time.sleep(1)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def arc_chip(unlaunched_dut: DeviceAdapter):
     """
     Validates the ARC firmware is alive and booted, since this required
@@ -74,6 +74,7 @@ def arc_chip(unlaunched_dut: DeviceAdapter):
             unlaunched_dut.device_config.extra_test_args.split()
         )
     unlaunched_dut._flash_and_run()
+    time.sleep(1)
     chips = pyluwen.detect_chips()
     if len(chips) == 0:
         raise RuntimeError("PCIe card was not detected on this system")

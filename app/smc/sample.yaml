@@ -12,6 +12,8 @@ tests:
     harness_config:
       pytest_root:
         - pytest/e2e-smoke.py
+      pytest_args:
+        - "--dut-scope=session"
   app.recovery:
     build_only: true
     extra_overlay_confs:
