@@ -18,6 +18,14 @@ ExternalZephyrProject_Add(
 # application without writing to SPI.
 sysbuild_add_dependencies(FLASH ${DEFAULT_IMAGE} bmc)
 
+# Build mcuboot for BMC but do not flash it
+ExternalZephyrProject_Add(
+	APPLICATION mcuboot
+	SOURCE_DIR  ${APP_DIR}/../bmc
+	BOARD       ${SB_CONFIG_BMC_BOARD}
+	BUILD_ONLY 1
+)
+
 if(BOARD STREQUAL "tt_blackhole")
   # Map board revision names to folder names for spirom config data
   string(TOUPPER ${BOARD_REVISION} BASE_NAME)
